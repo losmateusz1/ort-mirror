@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonIdentityInfo
 import com.fasterxml.jackson.annotation.JsonInclude
 
 import org.ossreviewtoolkit.model.PackageLinkage
+import org.ossreviewtoolkit.model.config.DependencyExclude
 import org.ossreviewtoolkit.model.config.PathExclude
 import org.ossreviewtoolkit.model.config.ScopeExclude
 
@@ -41,6 +42,8 @@ data class DependencyTreeNode(
     val pathExcludes: List<PathExclude> = emptyList(),
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     val scopeExcludes: List<ScopeExclude> = emptyList(),
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    val dependencyExcludes: List<DependencyExclude> = emptyList(),
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     val issues: List<EvaluatedIssue> = emptyList(),
     @JsonInclude(JsonInclude.Include.NON_EMPTY)

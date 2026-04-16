@@ -29,6 +29,7 @@ import org.ossreviewtoolkit.model.PackageReference
 import org.ossreviewtoolkit.model.Project
 import org.ossreviewtoolkit.model.config.Excludes
 import org.ossreviewtoolkit.model.config.Includes
+import org.ossreviewtoolkit.model.utils.isDependencyExcluded
 
 /**
  * An object that supports the conversion of [AnalyzerResult]s to the dependency graph format.
@@ -88,7 +89,9 @@ object DependencyGraphConverter {
                 project.scopes.filter { isScopeIncluded(it.name, excludes, includes) }.forEach { scope ->
                     val scopeName = DependencyGraph.qualifyScope(project.id, scope.name)
                     scope.dependencies.forEach { dependency ->
-                        builder.addDependency(scopeName, dependency)
+                        if (!isDependencyExcluded(dependency.id, excludes)) {
+                            builder.addDependency(scopeName, dependency)
+                        }
                     }
                 }
             }
@@ -110,12 +113,12 @@ object DependencyGraphConverter {
         excludes: Excludes,
         includes: Includes
     ): Set<Package> {
-        if (includes.scopes.isEmpty() && excludes.scopes.isEmpty()) {
+        if (includes.scopes.isEmpty() && excludes.scopes.isEmpty() && excludes.dependencies.isEmpty()) {
             return packages
         }
 
         val includedPackages = graphs.flatMapTo(mutableSetOf()) { it.packages }
-        return packages.filterTo(mutableSetOf()) { it.id in includedPackages }
+        return packages.filterTo(mutableSetOf()) { it.id in includedPackages && !isDependencyExcluded(it.id, excludes) }
     }
 
     /**

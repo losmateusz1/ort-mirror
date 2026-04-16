@@ -18,6 +18,7 @@
  */
 package org.ossreviewtoolkit.model.utils
 
+import org.ossreviewtoolkit.model.Identifier
 import org.ossreviewtoolkit.model.config.Excludes
 import org.ossreviewtoolkit.model.config.Includes
 
@@ -39,3 +40,6 @@ fun isScopeIncluded(scopeName: String, excludes: Excludes, includes: Includes): 
 
     return isIncluded && !isExcluded
 }
+
+fun isDependencyExcluded(identifier: Identifier, excludes: Excludes): Boolean =
+    excludes.isDependencyExcluded(identifier)

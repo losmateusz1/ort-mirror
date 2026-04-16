@@ -21,6 +21,7 @@ package org.ossreviewtoolkit.model.config
 
 import com.fasterxml.jackson.annotation.JsonInclude
 
+import org.ossreviewtoolkit.model.Identifier
 import org.ossreviewtoolkit.model.OrtResult
 import org.ossreviewtoolkit.model.Project
 
@@ -38,7 +39,13 @@ data class Excludes(
      * Scopes that will be excluded from all projects.
      */
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
-    val scopes: List<ScopeExclude> = emptyList()
+    val scopes: List<ScopeExclude> = emptyList(),
+
+    /**
+     * Dependency excludes that will be excluded from all projects, pattern matching the dependency id.
+     */
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    val dependencies: List<DependencyExclude> = emptyList()
 ) {
     companion object {
         /**
@@ -71,6 +78,18 @@ data class Excludes(
      * True if the scope with the given [scopeName] is excluded by this [Excludes] configuration.
      */
     fun isScopeExcluded(scopeName: String): Boolean = findScopeExcludes(scopeName).isNotEmpty()
+
+    /**
+     * Return the [DependencyExclude]s matching the provided [identifier].
+     */
+    fun findDependencyExcludes(identifier: Identifier): List<DependencyExclude> =
+        dependencies.filter { it.matches(identifier) }
+
+    /**
+     * True if the dependency with the given [identifier] is excluded by this [Excludes] configuration.
+     */
+    fun isDependencyExcluded(identifier: Identifier): Boolean =
+        findDependencyExcludes(identifier).isNotEmpty()
 }
 
 fun Excludes?.orEmpty(): Excludes = this ?: Excludes.EMPTY
