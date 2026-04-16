@@ -45,6 +45,7 @@ import org.ossreviewtoolkit.model.config.PathExclude
 import org.ossreviewtoolkit.model.config.RepositoryConfiguration
 import org.ossreviewtoolkit.model.config.Resolutions
 import org.ossreviewtoolkit.model.config.RuleViolationResolution
+import org.ossreviewtoolkit.model.config.DependencyExclude
 import org.ossreviewtoolkit.model.config.ScopeExclude
 import org.ossreviewtoolkit.model.config.VulnerabilityResolution
 import org.ossreviewtoolkit.model.licenses.LicenseView
@@ -79,6 +80,7 @@ internal class EvaluatedModelMapper(private val input: ReporterInput) {
     private val packageCurations = mutableListOf<PackageCuration>()
     private val pathExcludes = mutableListOf<PathExclude>()
     private val scopeExcludes = mutableListOf<ScopeExclude>()
+    private val dependencyExcludes = mutableListOf<DependencyExclude>()
     private val ruleViolations = mutableListOf<EvaluatedRuleViolation>()
     private val ruleViolationResolutions = mutableListOf<RuleViolationResolution>()
     private val vulnerabilities = mutableListOf<EvaluatedVulnerability>()
@@ -91,7 +93,8 @@ internal class EvaluatedModelMapper(private val input: ReporterInput) {
         var id: Identifier,
         var isExcluded: Boolean,
         val pathExcludes: MutableList<PathExclude> = mutableListOf(),
-        val scopeExcludes: MutableList<ScopeExclude> = mutableListOf()
+        val scopeExcludes: MutableList<ScopeExclude> = mutableListOf(),
+        val dependencyExcludes: MutableList<DependencyExclude> = mutableListOf()
     )
 
     private val packageExcludeInfo = mutableMapOf<Identifier, PackageExcludeInfo>()
@@ -213,6 +216,7 @@ internal class EvaluatedModelMapper(private val input: ReporterInput) {
                     info.isExcluded = false
                     info.pathExcludes.clear()
                     info.scopeExcludes.clear()
+                    info.dependencyExcludes.clear()
                 }
             } else {
                 dependencies.forEach { id ->
@@ -241,7 +245,17 @@ internal class EvaluatedModelMapper(private val input: ReporterInput) {
                         info.isExcluded = false
                         info.pathExcludes.clear()
                         info.scopeExcludes.clear()
+                        info.dependencyExcludes.clear()
                     }
+                }
+            }
+
+            dependencies.forEach { id ->
+                val depExcludes = input.ortResult.getExcludes().findDependencyExcludes(id)
+                if (depExcludes.isNotEmpty()) {
+                    val info = packageExcludeInfo.getOrPut(id) { PackageExcludeInfo(id, true) }
+                    info.isExcluded = true
+                    info.dependencyExcludes += depExcludes
                 }
             }
         }
@@ -312,6 +326,7 @@ internal class EvaluatedModelMapper(private val input: ReporterInput) {
             isExcluded = applicablePathExcludes.isNotEmpty(),
             pathExcludes = evaluatedPathExcludes,
             scopeExcludes = emptyList(),
+            dependencyExcludes = emptyList(),
             issues = issues
         )
 
@@ -352,6 +367,7 @@ internal class EvaluatedModelMapper(private val input: ReporterInput) {
 
         val evaluatedPathExcludes = pathExcludes.addIfRequired(excludeInfo.pathExcludes)
         val evaluatedScopeExcludes = scopeExcludes.addIfRequired(excludeInfo.scopeExcludes)
+        val evaluatedDependencyExcludes = dependencyExcludes.addIfRequired(excludeInfo.dependencyExcludes)
         val curations = packageCurations.addIfRequired(curationsForId.getValue(curatedPkg.metadata.id))
 
         val evaluatedPackage = EvaluatedPackage(
@@ -383,6 +399,7 @@ internal class EvaluatedModelMapper(private val input: ReporterInput) {
             isExcluded = excludeInfo.isExcluded,
             pathExcludes = evaluatedPathExcludes,
             scopeExcludes = evaluatedScopeExcludes,
+            dependencyExcludes = evaluatedDependencyExcludes,
             issues = issues
         )
 
@@ -529,6 +546,7 @@ internal class EvaluatedModelMapper(private val input: ReporterInput) {
             children = children,
             pathExcludes = emptyList(),
             scopeExcludes = emptyList(),
+            dependencyExcludes = dependency.dependencyExcludes,
             issues = issues
         )
 
@@ -593,6 +611,7 @@ internal class EvaluatedModelMapper(private val input: ReporterInput) {
                 children = subTrees,
                 pathExcludes = emptyList(),
                 scopeExcludes = evaluatedScopeExcludes,
+                dependencyExcludes = emptyList(),
                 issues = emptyList()
             )
         }
@@ -604,6 +623,7 @@ internal class EvaluatedModelMapper(private val input: ReporterInput) {
             children = scopeTrees,
             pathExcludes = pkg.pathExcludes,
             scopeExcludes = emptyList(),
+            dependencyExcludes = emptyList(),
             issues = emptyList()
         )
 
@@ -615,6 +635,7 @@ internal class EvaluatedModelMapper(private val input: ReporterInput) {
 
         val evaluatedPathExcludes = pathExcludes.addIfRequired(excludeInfo.pathExcludes)
         val evaluatedScopeExcludes = scopeExcludes.addIfRequired(excludeInfo.scopeExcludes)
+        val evaluatedDependencyExcludes = dependencyExcludes.addIfRequired(excludeInfo.dependencyExcludes)
 
         val evaluatedPackage = EvaluatedPackage(
             id = id,
@@ -642,6 +663,7 @@ internal class EvaluatedModelMapper(private val input: ReporterInput) {
             isExcluded = excludeInfo.isExcluded,
             pathExcludes = evaluatedPathExcludes,
             scopeExcludes = evaluatedScopeExcludes,
+            dependencyExcludes = evaluatedDependencyExcludes,
             issues = emptyList()
         )
 
@@ -813,7 +835,8 @@ internal class EvaluatedModelMapper(private val input: ReporterInput) {
         val excludes = with(config.excludes) {
             copy(
                 paths = paths.map { pathExcludes.addIfRequired(it) },
-                scopes = scopes.map { scopeExcludes.addIfRequired(it) }
+                scopes = scopes.map { scopeExcludes.addIfRequired(it) },
+                dependencies = dependencies.map { dependencyExcludes.addIfRequired(it) }
             )
         }
 
