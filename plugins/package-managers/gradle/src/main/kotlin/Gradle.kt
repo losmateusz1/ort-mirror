@@ -55,6 +55,7 @@ import org.ossreviewtoolkit.model.config.Excludes
 import org.ossreviewtoolkit.model.config.Includes
 import org.ossreviewtoolkit.model.createAndLogIssue
 import org.ossreviewtoolkit.model.utils.DependencyGraphBuilder
+import org.ossreviewtoolkit.model.utils.isDependencyExcluded
 import org.ossreviewtoolkit.model.utils.isScopeIncluded
 import org.ossreviewtoolkit.plugins.api.OrtPlugin
 import org.ossreviewtoolkit.plugins.api.PluginDescriptor
@@ -152,7 +153,7 @@ class Gradle(
         }
 
         override fun findVersions(artifact: Artifact) =
-            // Do not resolve versions of already locally available artifacts. This also ensures version resolution
+        // Do not resolve versions of already locally available artifacts. This also ensures version resolution
             // was done by Gradle.
             if (findArtifact(artifact)?.isFile == true) listOf(artifact.version) else emptyList()
 
@@ -289,7 +290,9 @@ class Gradle(
                 dependencyTreeModel.configurations.filter {
                     isScopeIncluded(it.name, excludes, includes)
                 }.forEach { configuration ->
-                    graphBuilder.addDependencies(projectId, configuration.name, configuration.dependencies)
+                    val scopeDependencies = configuration.dependencies
+                        .filter { !isDependencyExcluded(dependencyHandler.identifierFor(it), excludes) }
+                    graphBuilder.addDependencies(projectId, configuration.name, scopeDependencies)
                 }
 
                 val project = Project(

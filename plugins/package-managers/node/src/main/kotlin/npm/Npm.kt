@@ -33,6 +33,7 @@ import org.ossreviewtoolkit.model.config.AnalyzerConfiguration
 import org.ossreviewtoolkit.model.config.Excludes
 import org.ossreviewtoolkit.model.config.Includes
 import org.ossreviewtoolkit.model.utils.DependencyGraphBuilder
+import org.ossreviewtoolkit.model.utils.isDependencyExcluded
 import org.ossreviewtoolkit.plugins.api.OrtPlugin
 import org.ossreviewtoolkit.plugins.api.OrtPluginOption
 import org.ossreviewtoolkit.plugins.api.PluginDescriptor
@@ -177,7 +178,9 @@ class Npm(override val descriptor: PluginDescriptor = NpmFactory.descriptor, pri
         requestAllPackageDetails(projectModuleInfo, scopes)
 
         scopes.forEach { scope ->
-            graphBuilder.addDependencies(project.id, scope.descriptor, projectModuleInfo.getScopeDependencies(scope))
+            val scopeDependencies = projectModuleInfo.getScopeDependencies(scope)
+                .filter { !isDependencyExcluded(handler.identifierFor(it), excludes) }
+            graphBuilder.addDependencies(project.id, scope.descriptor, scopeDependencies)
         }
 
         return ProjectAnalyzerResult(

@@ -48,6 +48,7 @@ import org.ossreviewtoolkit.model.config.Excludes
 import org.ossreviewtoolkit.model.config.Includes
 import org.ossreviewtoolkit.model.createAndLogIssue
 import org.ossreviewtoolkit.model.utils.DependencyGraphBuilder
+import org.ossreviewtoolkit.model.utils.isDependencyExcluded
 import org.ossreviewtoolkit.model.utils.isScopeIncluded
 import org.ossreviewtoolkit.plugins.api.OrtPlugin
 import org.ossreviewtoolkit.plugins.api.PluginDescriptor
@@ -124,7 +125,8 @@ class GradleInspector(
     // "build" file.
     override val globsForDefinitionFiles = GRADLE_BUILD_FILES + GRADLE_SETTINGS_FILES
 
-    private val graphBuilder = DependencyGraphBuilder(GradleDependencyHandler(projectType))
+    private val dependencyHandler = GradleDependencyHandler(projectType)
+    private val graphBuilder = DependencyGraphBuilder(dependencyHandler)
     private val initScriptFile by lazy { extractInitScript() }
 
     private fun extractInitScript(): File {
@@ -262,7 +264,9 @@ class GradleInspector(
         dependencyTreeModel.configurations.filterNot {
             !isScopeIncluded(it.name, excludes, includes)
         }.forEach { configuration ->
-            graphBuilder.addDependencies(projectId, configuration.name, configuration.dependencies)
+            val scopeDependencies = configuration.dependencies
+                .filter { !isDependencyExcluded(dependencyHandler.identifierFor(it), excludes) }
+            graphBuilder.addDependencies(projectId, configuration.name, scopeDependencies)
         }
 
         val project = Project(
