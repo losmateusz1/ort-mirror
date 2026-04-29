@@ -60,6 +60,22 @@ class NpmFunTest : StringSpec({
         )
     }
 
+    "Exclude dependencies if configured" {
+        val definitionFile = getAssetFile("projects/synthetic/npm/shrinkwrap/package.json")
+        val expectedResultFile = getAssetFile(
+            "projects/synthetic/npm/shrinkwrap-skip-excluded-dependencies-expected-output.yml"
+        )
+
+        val result = NpmFactory.create()
+            .resolveSingleProject(
+                definitionFile,
+                excludedDependencies = setOf("NPM::cheerio:.*"),
+                resolveScopes = true
+            )
+
+        patchActualResult(result.toYaml()) should matchExpectedResult(expectedResultFile, definitionFile)
+    }
+
     "Exclude scopes if configured" {
         val definitionFile = getAssetFile("projects/synthetic/npm/shrinkwrap/package.json")
         val expectedResultFile = getAssetFile(

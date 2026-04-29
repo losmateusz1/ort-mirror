@@ -38,6 +38,8 @@ import org.ossreviewtoolkit.model.config.Excludes
 import org.ossreviewtoolkit.model.config.Includes
 import org.ossreviewtoolkit.model.config.PackageManagerConfiguration
 import org.ossreviewtoolkit.model.config.RepositoryConfiguration
+import org.ossreviewtoolkit.model.config.DependencyExclude
+import org.ossreviewtoolkit.model.config.DependencyExcludeReason
 import org.ossreviewtoolkit.model.config.ScopeExclude
 import org.ossreviewtoolkit.model.config.ScopeExcludeReason
 import org.ossreviewtoolkit.plugins.api.PluginConfig
@@ -46,6 +48,7 @@ import org.ossreviewtoolkit.utils.common.getCommonParentFile
 fun PackageManager.resolveSingleProject(
     definitionFile: File,
     excludedScopes: Collection<String> = emptySet(),
+    excludedDependencies: Collection<String> = emptySet(),
     allowDynamicVersions: Boolean = false,
     resolveScopes: Boolean = false
 ): ProjectAnalyzerResult {
@@ -56,7 +59,10 @@ fun PackageManager.resolveSingleProject(
     beforeResolution(analyzerRoot, definitionFiles, analyzerConfig)
 
     val includes = Includes.EMPTY
-    val excludes = Excludes(scopes = excludedScopes.map { ScopeExclude(it, ScopeExcludeReason.TEST_DEPENDENCY_OF) })
+    val excludes = Excludes(
+        scopes = excludedScopes.map { ScopeExclude(it, ScopeExcludeReason.TEST_DEPENDENCY_OF) },
+        dependencies = excludedDependencies.map { DependencyExclude(it, DependencyExcludeReason.TEST_DEPENDENCY_OF) }
+    )
     val managerResult = resolveDependencies(
         analyzerRoot,
         definitionFiles,

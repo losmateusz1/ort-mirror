@@ -90,6 +90,20 @@ class MavenFunTest : StringSpec({
         result.toYaml() should matchExpectedResult(expectedResultFile, definitionFile)
     }
 
+    "Dependencies can be excluded" {
+        val definitionFile = getAssetFile("projects/synthetic/maven/lib/pom.xml")
+        val expectedResultFile = getAssetFile("projects/synthetic/maven-expected-output-dependency-excludes.yml")
+
+        val result = MavenFactory.create()
+            .resolveSingleProject(
+                definitionFile,
+                excludedDependencies = setOf("Maven:org.apache.commons:commons-text:.*"),
+                resolveScopes = true
+            )
+
+        result.toYaml() should matchExpectedResult(expectedResultFile, definitionFile)
+    }
+
     "Scopes can be excluded" {
         val definitionFile = getAssetFile("projects/synthetic/maven/lib/pom.xml")
         val expectedResultFile = getAssetFile("projects/synthetic/maven-expected-output-scope-excludes.yml")

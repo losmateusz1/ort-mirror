@@ -54,6 +54,22 @@ class PnpmFunTest : StringSpec({
         patchActualResult(result.toYaml()) should matchExpectedResult(expectedResultFile, definitionFile)
     }
 
+    "Exclude dependencies if configured" {
+        val definitionFile = getAssetFile("projects/synthetic/pnpm/project-with-lockfile/package.json")
+        val expectedResultFile = getAssetFile(
+            "projects/synthetic/pnpm/project-with-lockfile-skip-excluded-dependencies-expected-output.yml"
+        )
+
+        val result = PnpmFactory.create()
+            .resolveSingleProject(
+                definitionFile,
+                excludedDependencies = setOf("NPM::cheerio:.*"),
+                resolveScopes = true
+            )
+
+        patchActualResult(result.toYaml()) should matchExpectedResult(expectedResultFile, definitionFile)
+    }
+
     "Resolve dependencies for a project depending on Babel correctly" {
         val definitionFile = getAssetFile("projects/synthetic/pnpm/babel/package.json")
         val expectedResultFile = getAssetFile("projects/synthetic/pnpm/babel-expected-output.yml")
