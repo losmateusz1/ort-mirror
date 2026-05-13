@@ -223,6 +223,35 @@ import Yarn from '!!raw-loader!@site/../examples/yarn.ort.yml'
 <CodeBlock language="yml" title="Yarn">{Yarn}</CodeBlock>
 ```
 
+### Excluding Dependencies
+
+Dependency excludes are used to mark specific dependencies as excluded across all projects and scopes.
+The `pattern` is a regular expression matched against the [coordinates](https://github.com/oss-review-toolkit/ort/blob/main/model/src/main/kotlin/Identifier.kt) of a dependency (in the form `type:namespace:name:version`).
+
+The code below shows the structure of a dependency exclude in the `.ort.yml` file:
+
+```yaml
+excludes:
+  dependencies:
+  - pattern: "A regular expression matching the coordinates of the dependency to exclude."
+    reason: "One of DependencyExcludeReason e.g. BUILD_DEPENDENCY_OF, DEV_DEPENDENCY_OF or TEST_DEPENDENCY_OF."
+    comment: "A comment further explaining why the dependency is excluded."
+```
+
+Where the list of available options for `reason` is defined in [DependencyExcludeReason.kt](https://github.com/oss-review-toolkit/ort/blob/main/model/src/main/kotlin/config/DependencyExcludeReason.kt).
+
+The dependency exclude below marks a specific Maven package as excluded because it is only used for testing:
+
+```yaml
+excludes:
+  dependencies:
+  - pattern: "Maven:org.junit.jupiter:junit-jupiter:.*"
+    reason: "TEST_DEPENDENCY_OF"
+    comment: "JUnit is a test framework and is not distributed."
+```
+
+Dependency excludes always apply to all found projects in a scan, regardless of which scope the dependency appears in.
+
 ## Interaction between Includes and Excludes
 
 There is no priority when using both includes and excludes.
