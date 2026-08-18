@@ -84,7 +84,10 @@ private const val PACKAGE_TYPE = "Bazel"
 
 private const val BAZEL_FALLBACK_VERSION = "8.7.0"
 private const val BAZEL_RC_FILE = ".bazelrc"
+private const val BAZEL_RC_IMPORT_PATTERN = "import "
+private const val BAZEL_RC_TRY_IMPORT_PATTERN = "try-import "
 private const val BAZEL_RC_REGISTRY_PATTERN = "common --registry="
+private const val BAZEL_RC_WORKSPACE_PLACEHOLDER = "%workspace%"
 private const val LOCKFILE_NAME = "MODULE.bazel.lock"
 private const val BUILDOZER_MISSING_VALUE = "(missing)"
 private const val CONAN_REQUIRES_SCOPE_NAME = "conan_requires"
@@ -752,6 +755,92 @@ private fun AnalyzerConfiguration.getConanFactory() =
     determineEnabledPackageManagers().find { it.descriptor.id.startsWith("Conan") }
 
 private fun getRegistryUrlsFromBazelRcFile(projectDir: File): Set<String> {
-    val bazelRcFile = projectDir.resolve(BAZEL_RC_FILE).takeIf { it.isFile } ?: return emptySet()
-    return bazelRcFile.readLines().mapNotNullTo(mutableSetOf()) { it.withoutPrefix(BAZEL_RC_REGISTRY_PATTERN) }
+    val bazelRcFile = projectDir.resolve(BAZEL_RC_FILE)
+    if (!bazelRcFile.isFile) return emptySet()
+
+    val urls = mutableSetOf<String>()
+    val visited = mutableSetOf<File>()
+    readBazelRcFile(bazelRcFile, projectDir, visited, urls)
+    return urls
+}
+
+/**
+ * Recursively read the given [bazelRcFile] and collect registry URLs from `common --registry=` directives. Also follow
+ * `import` and `try-import` directives to process additional `.bazelrc` files. The [projectDir] is used to resolve the
+ * `%workspace%` placeholder, and [visited] tracks already-processed files to prevent cycles.
+ */
+private fun readBazelRcFile(
+    bazelRcFile: File,
+    projectDir: File,
+    visited: MutableSet<File>,
+    urls: MutableSet<String>
+) {
+    val canonicalFile = bazelRcFile.canonicalFile
+    if (!visited.add(canonicalFile)) return
+    if (!bazelRcFile.isFile) return
+
+    val baseDir = bazelRcFile.parentFile ?: projectDir
+    bazelRcFile.useLines { lines ->
+        lines.forEach { line ->
+            val trimmed = line.trim()
+            if (trimmed.isEmpty() || trimmed.startsWith("#")) return@forEach
+
+            val isImport = trimmed.startsWith(BAZEL_RC_IMPORT_PATTERN)
+            val isTryImport = !isImport && trimmed.startsWith(BAZEL_RC_TRY_IMPORT_PATTERN)
+            val importPath = when {
+                isImport -> trimmed.withoutPrefix(BAZEL_RC_IMPORT_PATTERN)
+                isTryImport -> trimmed.withoutPrefix(BAZEL_RC_TRY_IMPORT_PATTERN)
+                else -> null
+            }
+
+            if (importPath != null) {
+                processBazelRcImport(importPath, isTryImport, baseDir, projectDir, visited, urls)
+                return@forEach
+            }
+
+            trimmed.withoutPrefix(BAZEL_RC_REGISTRY_PATTERN)?.let { url ->
+                urls += url
+            }
+        }
+    }
+}
+
+/**
+ * Resolve [importPath] referenced by an `import` or `try-import` directive, and recursively process the referenced
+ * bazelrc file. If [isTryImport] is `true`, missing files are silently skipped; otherwise the missing-file situation
+ * is ignored. Paths that escape the workspace are rejected.
+ */
+private fun processBazelRcImport(
+    importPath: String,
+    isTryImport: Boolean,
+    baseDir: File,
+    projectDir: File,
+    visited: MutableSet<File>,
+    urls: MutableSet<String>
+) {
+    val resolved = resolveBazelRcImportPath(importPath, baseDir, projectDir) ?: return
+    if (resolved.isFile) {
+        readBazelRcFile(resolved, projectDir, visited, urls)
+    }
+}
+
+/**
+ * Resolve the path of an `import` or `try-import` directive against the [baseDir] of the referencing file. The
+ * `%workspace%` placeholder is replaced with the absolute path of [projectDir]. Return `null` if the resolved path
+ * escapes the workspace and would be considered unsafe.
+ */
+private fun resolveBazelRcImportPath(path: String, baseDir: File, projectDir: File): File? {
+    val expanded = path.replace(BAZEL_RC_WORKSPACE_PLACEHOLDER, projectDir.absolutePath)
+    val resolved = if (File(expanded).isAbsolute) {
+        File(expanded)
+    } else {
+        baseDir.resolve(expanded)
+    }
+
+    // Guard against paths that escape the workspace via symlinks or ".." segments.
+    val canonicalProjectDir = projectDir.canonicalFile.absolutePath
+    val canonicalResolved = resolved.canonicalFile.absolutePath
+    val isInsideWorkspace = canonicalResolved == canonicalProjectDir ||
+        canonicalResolved.startsWith("$canonicalProjectDir${File.separator}")
+    return resolved.takeIf { isInsideWorkspace }
 }
